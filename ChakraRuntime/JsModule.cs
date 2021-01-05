@@ -116,7 +116,7 @@ namespace ChakraRuntime
         public abstract ComponentLoader[] GetComponentsProxy();
     }
 
-    public abstract class ComponentLoader : ObjectProxy
+    public abstract class ComponentLoader : ProxyContext
     {
         internal virtual string Name => ((AsNameAttribute)this.GetType().GetCustomAttributes(false)[0]).Name;
 

@@ -214,13 +214,13 @@ namespace ChakraRuntime
         {
             return ToJObject(this, type);
         }
-        public T ChangeObject<T>()
+        public T ProxyObject<T>()
         {
-            return ChangeObject<T>(this);
+            return ProxyObject<T>(this);
         }
-        public object ChangeObject(Type type)
+        public object ProxyObject(Type type)
         {
-            return ChangeObject(this, type);
+            return ProxyObject(this, type);
         }
         public new string ToString() => (string)this;
 
@@ -298,7 +298,7 @@ namespace ChakraRuntime
         }
         public static T ToJsonObject<T>(JsValue value)
         {
-            return (T)ChangeObject(value, typeof(T));
+            return (T)ProxyObject(value, typeof(T));
         }
         public static string ToJString(JsValue value)
         {
@@ -313,11 +313,11 @@ namespace ChakraRuntime
         {
             return new JavaScriptSerializer().Deserialize(value.ToJString(), type);
         }
-        public static T ChangeObject<T>(JsValue value)
+        public static T ProxyObject<T>(JsValue value)
         {
-            return (T)ChangeObject(value, typeof(T));
+            return (T)ProxyObject(value, typeof(T));
         }
-        public static object ChangeObject(JsValue value, Type type)
+        public static object ProxyObject(JsValue value, Type type)
         {
             switch (Type.GetTypeCode(type))
             {
@@ -343,7 +343,7 @@ namespace ChakraRuntime
             }
         }
         public static JsValue FromObject(object value) => FromObject(JsContext.ProxyHandle.Invoke(), value);
-        public static JsValue FromObject(ObjectProxy proxy, object value)
+        public static JsValue FromObject(ProxyContext proxy, object value)
         {
             if (value is Type)
                 return CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) => JsContext.ProxyHandle.Invoke().OnConstructInvoke((Type)value, ((Type)value).GetConstructors(), _callee, _isConstructCall, _arguments, _argumentCount));
@@ -445,6 +445,81 @@ namespace ChakraRuntime
             var milliseconds = (double)value.ConvertToNumber();
 
             return TimeZone.CurrentTimeZone.ToLocalTime(new System.DateTime(1970, 1, 1)).AddMilliseconds(milliseconds);
+        }
+    }
+
+    public class ProxyContext
+    {
+        protected internal virtual JsValue OnConstructInvoke(Type _reference, ConstructorInfo[] constructors, JsValue _callee, [MarshalAs(UnmanagedType.U1)] bool _isConstructCall, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] JsValue[] _arguments, ushort _argumentCount)
+        {
+            if (!_isConstructCall)
+                throw new JsScriptException(JsStatusFlags.ScriptException, "此对象需要初始化后再使用!");
+
+            return constructors.Select(q =>
+            {
+                var arguments = q.GetParameters();
+                if (arguments.Length == _argumentCount - 1)
+                {
+                    var args = new object[arguments.Length];
+                    for (int i = 0; i < args.Length; i++)
+                    {
+                        try
+                        {
+                            args[i] = _arguments[i + 1].ChangeObject(arguments[i].ParameterType);
+                        }
+                        catch (Exception)
+                        {
+                            args = null;
+                            break;
+                        }
+                    }
+                    if (args != null)
+                        return JsValue.FromObject(q.Invoke(args));
+                }
+                return JsValue.Invalid;
+            }).FirstOrDefault(q => q.IsValid);
+        }
+        protected internal virtual JsValue OnInvoke(object _reference, MethodBase[] methods, JsValue _callee, [MarshalAs(UnmanagedType.U1)] bool _isConstructCall, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] JsValue[] _arguments, ushort _argumentCount)
+        {
+            if (_isConstructCall)
+                throw new JsScriptException(JsStatusFlags.ScriptException, "方法或属性不能使用实例化关键字 'new'");
+
+            return methods.Select(q =>
+            {
+                var arguments = q.GetParameters();
+                if (arguments.Length == _argumentCount - 1)
+                {
+                    var args = new object[arguments.Length];
+                    for (int i = 0; i < args.Length; i++)
+                    {
+                        try
+                        {
+                            args[i] = _arguments[i + 1].ChangeObject(arguments[i].ParameterType);
+                        }
+                        catch (Exception)
+                        {
+                            args = null;
+                            break;
+                        }
+                    }
+                    if (args != null)
+                        return JsValue.FromObject(q.Invoke(_reference, args));
+                }
+                return JsValue.Invalid;
+            }).FirstOrDefault(q => q.IsValid);
+        }
+        protected internal virtual JsValue OnGet(object _reference, PropertyInfo property, JsValue _callee, [MarshalAs(UnmanagedType.U1)] bool _isConstructCall, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] JsValue[] _arguments, ushort _argumentCount)
+        {
+            if (_isConstructCall)
+                throw new JsScriptException(JsStatusFlags.ScriptException, "方法或属性不能使用实例化关键字 'new'");
+            return JsValue.FromObject(property.GetValue(_reference));
+        }
+        protected internal virtual JsValue OnSet(object _reference, PropertyInfo property, JsValue _callee, [MarshalAs(UnmanagedType.U1)] bool _isConstructCall, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] JsValue[] _arguments, ushort _argumentCount)
+        {
+            if (_isConstructCall)
+                throw new JsScriptException(JsStatusFlags.ScriptException, "方法或属性不能使用实例化关键字 'new'");
+            property.SetValue(_reference, _arguments[1].ChangeObject(property.PropertyType));
+            return JsValue.Undefined;
         }
     }
 }

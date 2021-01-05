@@ -23,7 +23,7 @@ namespace Sample
             {
                 var ret = context.RunScript("(function(){ return { name: '张三', getAge: function(args){ return args * 18; } } })()");
 
-                var user = JsValue.ChangeObject<User>(ret);
+                var user = JsValue.ProxyObject<User>(ret);
                 Console.WriteLine(user.Name);
                 Console.WriteLine(user.GetAge(2));
                 user.Name = "李四";

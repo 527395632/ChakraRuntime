@@ -115,7 +115,7 @@ namespace ChakraRuntime
                 Current = Invalid;
         }
 
-        public static ObjectProxyHandle ProxyHandle { get; set; } = new ObjectProxyHandle(() => new ObjectProxy());
+        public static ObjectProxyHandle ProxyHandle { get; set; } = new ObjectProxyHandle(() => new ProxyContext());
         public static JsContext Invalid => new JsContext(IntPtr.Zero);
         public static JsContext Current
         {

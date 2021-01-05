@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Remoting.Activation;
 using System.Runtime.Remoting.Messaging;
 using System.Runtime.Remoting.Proxies;
@@ -65,7 +66,7 @@ namespace ChakraRuntime
                             throw new Exception("无效的JsValue!");
                         if (!_stubValue.HasProperty(string.IsNullOrWhiteSpace(asName) ? name : asName))
                             throw new Exception("该属性在JsValue中不存在!");
-                        var obj = _stubValue.GetProperty(string.IsNullOrWhiteSpace(asName) ? name : asName).ChangeObject(((MethodInfo)message.MethodBase).ReturnType);
+                        var obj = _stubValue.GetProperty(string.IsNullOrWhiteSpace(asName) ? name : asName).ProxyObject(((MethodInfo)message.MethodBase).ReturnType);
                         return new ReturnMessage(obj, new object[0], 0, message.LogicalCallContext, message);
                     }
                     else if (message.MethodName.StartsWith("set_"))
@@ -87,7 +88,7 @@ namespace ChakraRuntime
                             throw new Exception("无效的JsValue!");
                         if (!_stubValue.HasProperty(string.IsNullOrWhiteSpace(asName) ? name : asName))
                             throw new Exception("该属性在JsValue中不存在!");
-                        var obj = _stubValue.GetProperty(string.IsNullOrWhiteSpace(asName) ? name : asName).ChangeObject(((MethodInfo)message.MethodBase).ReturnType);
+                        var obj = _stubValue.GetProperty(string.IsNullOrWhiteSpace(asName) ? name : asName).ProxyObject(((MethodInfo)message.MethodBase).ReturnType);
                         return new ReturnMessage(null, new object[] { message.Args[0], message.Args[1], obj }, 3, message.LogicalCallContext, message);
                     }
                     else if (message.MethodName.Equals("FieldSetter"))
@@ -114,7 +115,7 @@ namespace ChakraRuntime
                         args.Add(method);
                         foreach (var item in message.Args)
                             args.Add(JsValue.FromObject(item));
-                        var obj = method.Call(args.ToArray()).ChangeObject(((MethodInfo)message.MethodBase).ReturnType);
+                        var obj = method.Call(args.ToArray()).ProxyObject(((MethodInfo)message.MethodBase).ReturnType);
                         return new ReturnMessage(obj, new object[0], 0, message.LogicalCallContext, message);
                     }
                 }
