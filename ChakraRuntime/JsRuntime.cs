@@ -65,54 +65,55 @@ namespace ChakraRuntime
         {
             Native.ThrowIfError(Native.JsDiagSetBreakOnException(runtimeHandle, exceptionAttributes));
         }
+
         public BreakPoint SetBreakpoint(uint _scriptId, uint _lineNumber, uint _column, out JsValue _breakpoint)
         {
             Native.ThrowIfError(Native.JsDiagSetBreakpoint(_scriptId, _lineNumber, _column, out _breakpoint));
-            return _breakpoint.ToObject<BreakPoint>();
+            return _breakpoint.ToJObject<BreakPoint>();
         }
         public SourceCode[] GetScripts()
         {
             Native.ThrowIfError(Native.JsDiagGetScripts(out var scripts));
-            return scripts.ToObject<SourceCode[]>();
+            return scripts.ToJObject<SourceCode[]>();
         }
         public BreakPoint[] GetBreakpoints()
         {
             Native.ThrowIfError(Native.JsDiagGetBreakpoints(out var breakpoints));
-            return breakpoints.ToObject<BreakPoint[]>();
+            return breakpoints.ToJObject<BreakPoint[]>();
         }
         public Variable DiagEvaluate(JsValue _expression, uint _stackFrameIndex, JsParseScriptFlags _parseAttributes, bool _forceSetValueProp)
         {
             Native.ThrowIfError(Native.JsDiagEvaluate(_expression, _stackFrameIndex, _parseAttributes, _forceSetValueProp, out var eval));
-            return eval.ToObject<Variable>();
+            return eval.ToJObject<Variable>();
         }
         public Variable DiagGetObjectFromHandle(uint objectHandle)
         {
             Native.ThrowIfError(Native.JsDiagGetObjectFromHandle(objectHandle, out var handleObject));
-            return handleObject.ToObject<Variable>();
+            return handleObject.ToJObject<Variable>();
         }
         public SourceCode DiagGetSource(uint scriptId)
         {
             Native.ThrowIfError(Native.JsDiagGetSource(scriptId, out var source));
-            return source.ToObject<SourceCode>();
+            return source.ToJObject<SourceCode>();
         }
         public StackTrace[] DiagGetStackTrace()
         {
             Native.ThrowIfError(Native.JsDiagGetStackTrace(out var stackTrace));
-            var ret = stackTrace.ToObject<StackTrace[]>();
-            
+            var ret = stackTrace.ToJObject<StackTrace[]>();
+
             return ret;
         }
         public StackProperties DiagGetStackProperties(uint stackFrameIndex)
         {
             Native.ThrowIfError(Native.JsDiagGetStackProperties(stackFrameIndex, out var properties));
-            var value = properties.ToObject<StackProperties>();
-            value.Locals = value.Locals.Where(q => (q.PropertyAttributes & PropertyAttributesFlags.IN_TDZ) != PropertyAttributesFlags.IN_TDZ).ToArray();
+            var value = (StackProperties)properties.ToJObject<StackProperties>();
+            value.Locals = value.Locals.Where(q => (q.PropertyAttributes & PropertyFlags.IN_TDZ) != PropertyFlags.IN_TDZ).ToArray();
             return value;
         }
         public StackGlobalProperties DiagGetProperties(uint objectHandle, uint fromCount, uint totalCount)
         {
             Native.ThrowIfError(Native.JsDiagGetProperties(objectHandle, fromCount, totalCount, out var propertiesObject));
-            return propertiesObject.ToObject<StackGlobalProperties>();
+            return propertiesObject.ToJObject<StackGlobalProperties>();
         }
         public void RequestAsyncBreak() => Native.ThrowIfError(Native.JsDiagRequestAsyncBreak(this));
         public JsDiagBreakOnExceptionFlags DiagGetBreakOnException()

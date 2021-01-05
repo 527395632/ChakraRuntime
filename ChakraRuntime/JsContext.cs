@@ -1,6 +1,4 @@
-﻿using ChakraRuntime.Components;
-using System;
-using System.IO;
+﻿using System;
 using System.Threading;
 
 namespace ChakraRuntime
@@ -24,15 +22,16 @@ namespace ChakraRuntime
                 return handle;
             }
         }
-        public JsValue LoadMoule(string moduleName, string moduleFileName, ComponentLoaderHandle onGetComponents, SourceHandle onSourceReader)
+
+        public JsValue LoadMoule(string moduleName, string moduleFileName, JsModuleLoadHandle loader)
         {
             Global.SetProperty("__APP__", JsValue.CreateObject(), true);
             var wait = new EventWaitHandle(false, EventResetMode.ManualReset);
-            JsModule.Root.LoadMoule("app.boot", new JsSourceContext(), onGetComponents, fileName =>
+            JsModule.Root.LoadModule("app.boot", new JsSourceContext(), namespance =>
             {
-                return fileName.Equals("app.boot") ?
-                $"import {{ { moduleName } }} from '{ moduleFileName }'; __APP__ = new { moduleName }();" :
-                onSourceReader.Invoke(fileName);
+                return namespance.Equals("app.boot") ? 
+                new JsModuleLoader(namespance, $"import {{ { moduleName } }} from '{ moduleFileName }'; __APP__ = new { moduleName }();") :
+                loader(namespance);
             }, (module, exception) => wait.Set()).Eval();
             wait.WaitOne();
             var value = Global.GetProperty("__APP__");
@@ -116,6 +115,7 @@ namespace ChakraRuntime
                 Current = Invalid;
         }
 
+        public static ObjectProxyHandle ProxyHandle { get; set; } = new ObjectProxyHandle(() => new ObjectProxy());
         public static JsContext Invalid => new JsContext(IntPtr.Zero);
         public static JsContext Current
         {

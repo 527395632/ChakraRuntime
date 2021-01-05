@@ -1,5 +1,4 @@
-﻿using ChakraRuntime.Components;
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 
 namespace ChakraRuntime
@@ -20,7 +19,6 @@ namespace ChakraRuntime
     public delegate bool JsThreadServiceHandle(JsBackgroundWorkItemHandle _handleFunction, IntPtr _handleData);
     public delegate JsValue JsNativeFunction(JsValue _callee, [MarshalAs(UnmanagedType.U1)] bool _isConstructCall, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] JsValue[] _arguments, ushort _argumentCount, IntPtr _handleData);
     public delegate void ModuleReadyHandle(JsModule _referencingModule, JsValue _exception);
-
-    public delegate ComponentLoader[] ComponentLoaderHandle(string namespance);
-    public delegate string SourceHandle(string fileName);
+    public delegate ObjectProxy ObjectProxyHandle();
+    public delegate IJsModuleLoader JsModuleLoadHandle(JsValue specifier);
 }

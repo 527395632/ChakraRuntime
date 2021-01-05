@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Web.Script.Serialization;
 
@@ -79,7 +80,7 @@ namespace ChakraRuntime
             Native.ThrowIfError(Native.JsRelease(this, out var count));
             return count;
         }
-        public JsValue NewObject(params JsValue[] _arguments)
+        public JsValue ConstructCall(params JsValue[] _arguments)
         {
             if (_arguments.Length > ushort.MaxValue)
                 throw new ArgumentOutOfRangeException(nameof(_arguments));
@@ -204,9 +205,23 @@ namespace ChakraRuntime
                    let val = _this.GetProperty(name)
                    select new KeyValuePair<string, JsValue>(name, val);
         }
-        public T ToObject<T>() => (T)ToObject(this, typeof(T));
-        public object ToObject(Type type) => ToObject(this, type);
-        public string ToJsonString() => ToJsonString(this);
+        public string ToJString() => ToJString(this);
+        public T ToJObject<T>()
+        {
+            return ToJObject<T>(this);
+        }      
+        public object ToJObject(Type type)
+        {
+            return ToJObject(this, type);
+        }
+        public T ChangeObject<T>()
+        {
+            return ChangeObject<T>(this);
+        }
+        public object ChangeObject(Type type)
+        {
+            return ChangeObject(this, type);
+        }
         public new string ToString() => (string)this;
 
         public static JsValue Invalid => new JsValue(IntPtr.Zero);
@@ -283,61 +298,34 @@ namespace ChakraRuntime
         }
         public static T ToJsonObject<T>(JsValue value)
         {
-            return (T)ToObject(value, typeof(T));
+            return (T)ChangeObject(value, typeof(T));
         }
-        public static string ToJsonString(JsValue value)
+        public static string ToJString(JsValue value)
         {
             var json = JsContext.Current.Global.GetProperty("JSON");
             return json.GetProperty("stringify").Call(json, value);
         }
-        public static object ToObject<T>(JsValue value)
+        public static T ToJObject<T>(JsValue value)
         {
-            return ToObject(value, typeof(T));
+            return (T)ToJObject(value, typeof(T));
         }
-        public static object ToObject(JsValue value, Type type)
+        public static object ToJObject(JsValue value, Type type)
         {
-            if (type.IsEnum && value.ValueType == JsValueFlags.String)
-            {
-                return Enum.Parse(type, value);
-            }
-            else
-            {
-                switch (Type.GetTypeCode(type))
-                {
-                    case TypeCode.Boolean: return (bool)value;
-                    case TypeCode.Single:
-                    case TypeCode.Double:
-                    case TypeCode.Decimal: return (double)value;
-                    case TypeCode.Char:
-                    case TypeCode.SByte:
-                    case TypeCode.Byte:
-                    case TypeCode.Int16:
-                    case TypeCode.Int32:
-                    case TypeCode.Int64:
-                    case TypeCode.UInt16:
-                    case TypeCode.UInt32:
-                    case TypeCode.UInt64: return (int)value;
-                    case TypeCode.String: return (string)value;
-                    case TypeCode.DBNull:
-                    case TypeCode.Empty: return null;
-                    case TypeCode.DateTime: return (DateTime)value;
-                    case TypeCode.Object: return new JavaScriptSerializer().Deserialize(ToJsonString(value), type);
-                    default:
-                        throw new NotSupportedException("暂不支持该类型!");
-                }
-            }
+            return new JavaScriptSerializer().Deserialize(value.ToJString(), type);
         }
-        public static JsValue FromObject(object obj)
+        public static T ChangeObject<T>(JsValue value)
         {
-            if (obj == null)
-                return Null;
-            switch (Type.GetTypeCode(obj.GetType()))
+            return (T)ChangeObject(value, typeof(T));
+        }
+        public static object ChangeObject(JsValue value, Type type)
+        {
+            switch (Type.GetTypeCode(type))
             {
-                case TypeCode.Boolean: return (bool)obj;
-                case TypeCode.Char: return (char)obj;
+                case TypeCode.Boolean: return (bool)value;
                 case TypeCode.Single:
                 case TypeCode.Double:
-                case TypeCode.Decimal: return (double)obj;
+                case TypeCode.Decimal: return (double)value;
+                case TypeCode.Char:
                 case TypeCode.SByte:
                 case TypeCode.Byte:
                 case TypeCode.Int16:
@@ -345,16 +333,62 @@ namespace ChakraRuntime
                 case TypeCode.Int64:
                 case TypeCode.UInt16:
                 case TypeCode.UInt32:
-                case TypeCode.UInt64: return (int)obj;
-                case TypeCode.String: return (string)obj;
+                case TypeCode.UInt64: return (int)value;
+                case TypeCode.String: return (string)value;
+                case TypeCode.DBNull:
+                case TypeCode.Empty: return null;
+                case TypeCode.DateTime: return (DateTime)value;
+                case TypeCode.Object: return new JsObject(value, type).GetTransparentProxy();
+                default: throw new NotSupportedException("暂不支持该类型!");
+            }
+        }
+        public static JsValue FromObject(object value) => FromObject(JsContext.ProxyHandle.Invoke(), value);
+        public static JsValue FromObject(ObjectProxy proxy, object value)
+        {
+            if (value is Type)
+                return CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) => JsContext.ProxyHandle.Invoke().OnConstructInvoke((Type)value, ((Type)value).GetConstructors(), _callee, _isConstructCall, _arguments, _argumentCount));
+            var type = value.GetType();
+            if (type.IsEnum) return value.ToString();
+
+            switch (Type.GetTypeCode(type))
+            {
+                case TypeCode.Boolean: return (bool)value;
+                case TypeCode.Single:
+                case TypeCode.Double:
+                case TypeCode.Decimal: return (double)value;
+                case TypeCode.Char:
+                case TypeCode.SByte:
+                case TypeCode.Byte:
+                case TypeCode.Int16:
+                case TypeCode.Int32:
+                case TypeCode.Int64:
+                case TypeCode.UInt16:
+                case TypeCode.UInt32:
+                case TypeCode.UInt64: return (int)value;
+                case TypeCode.String: return (string)value;
                 case TypeCode.DBNull:
                 case TypeCode.Empty: return Null;
-                case TypeCode.DateTime: return (DateTime)obj;
+                case TypeCode.DateTime: return (DateTime)value;
                 case TypeCode.Object:
-                    var json = JsContext.Current.Global.GetProperty("JSON");
-                    return json.GetProperty("parse").Call(json, new JavaScriptSerializer().Serialize(obj));
+                    var obj = CreateObject();
+                    var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public).Where(q => !q.IsSpecialName);
+                    foreach (var method in methods.Select(q => q.Name).Distinct().ToArray())
+                        obj.SetProperty(method, CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) => proxy.OnInvoke(value, methods.Where(q => q.Name.Equals(method)).ToArray(), _callee, _isConstructCall, _arguments, _argumentCount)), true);
+                    var properties = type.GetProperties(BindingFlags.Instance | BindingFlags.Public);
+                    foreach (var property in properties)
+                    {
+                        var descriptor = CreateObject();
+                        descriptor.SetProperty("configurable", false, true);
+                        if (property.CanRead)
+                            descriptor.SetProperty("get", CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) => proxy.OnGet(value, property, _callee, _isConstructCall, _arguments, _argumentCount)), true);
+                        if (property.CanWrite)
+                            descriptor.SetProperty("set", CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) => proxy.OnSet(value, property, _callee, _isConstructCall, _arguments, _argumentCount)), true);
+
+                        obj.DefineProperty(property.Name, descriptor);
+                    }
+                    return obj;
                 default:
-                    return Undefined;
+                    throw new NotSupportedException("暂不支持该类型!");
             }
         }
 
@@ -386,7 +420,7 @@ namespace ChakraRuntime
         public static implicit operator JsValue(int value)
         {
             Native.ThrowIfError(Native.JsIntToNumber(value, out var reference));
-            return value;
+            return reference;
         }
         public static implicit operator JsValue(string value)
         {
@@ -404,7 +438,7 @@ namespace ChakraRuntime
         public static implicit operator JsValue(DateTime value)
         {
             var date = JsContext.Current.Global.GetProperty("Date");
-            return date.NewObject(date, (value - TimeZone.CurrentTimeZone.ToLocalTime(new System.DateTime(1970, 1, 1))).TotalMilliseconds);
+            return date.ConstructCall(date, (value - TimeZone.CurrentTimeZone.ToLocalTime(new System.DateTime(1970, 1, 1))).TotalMilliseconds);
         }
         public static implicit operator DateTime(JsValue value)
         {

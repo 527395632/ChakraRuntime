@@ -21,6 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>8.0</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -29,6 +30,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>8.0</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -42,16 +44,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Components\AsNameAttribute.cs" />
-    <Compile Include="Components\ComponentLoader.cs" />
     <Compile Include="Debug\BreakPoint.cs" />
-    <Compile Include="Debug\PropertyAttributesFlags.cs" />
+    <Compile Include="Debug\PropertyFlags.cs" />
     <Compile Include="Debug\Scope.cs" />
     <Compile Include="Debug\SourceCode.cs" />
     <Compile Include="Debug\StackGlobalProperties.cs" />
     <Compile Include="Debug\StackProperties.cs" />
     <Compile Include="Debug\StackTrace.cs" />
     <Compile Include="Debug\Variable.cs" />
+    <Compile Include="ObjectProxy.cs" />
     <Compile Include="JsHandles.cs" />
     <Compile Include="JsContext.cs" />
     <Compile Include="JsFlags.cs" />
@@ -61,6 +62,7 @@
     <Compile Include="JsRuntime.cs" />
     <Compile Include="JsSourceContext.cs" />
     <Compile Include="JsValue.cs" />
+    <Compile Include="JsObject.cs" />
     <Compile Include="Library\Native.cs" />
     <Compile Include="Library\Native32.cs" />
     <Compile Include="Library\Native64.cs" />

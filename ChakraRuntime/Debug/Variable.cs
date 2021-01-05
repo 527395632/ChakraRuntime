@@ -10,7 +10,7 @@ namespace ChakraRuntime.Debug
         public string Type;
         public string ClassName;
         public string Display;
-        public PropertyAttributesFlags PropertyAttributes;
+        public PropertyFlags PropertyAttributes;
         public uint Handle;
         public string Value;
     }

@@ -1,5 +1,4 @@
-﻿using ChakraRuntime.Components;
-using System;
+﻿using System;
 using System.Text;
 
 namespace ChakraRuntime
@@ -29,34 +28,40 @@ namespace ChakraRuntime
         public void SetHostInfo(JsFetchImportedModuleHandle _fetch) => Native.ThrowIfError(Native.JsSetModuleHostInfo(this, _fetch));
         public void SetHostInfo(JsNotifyModuleReadyHandle _ready) => Native.ThrowIfError(Native.JsSetModuleHostInfo(this, _ready));
         public void SetHostInfo(JsFetchImportedModuleFromScriptHandle _fetch) => Native.ThrowIfError(Native.JsSetModuleHostInfo(this, _fetch));
-        public JsModule LoadMoule(JsValue name, JsSourceContext context, ComponentLoaderHandle loader, SourceHandle reader, ModuleReadyHandle ready)
+
+        public JsModule LoadModule(JsValue name, JsSourceContext context, JsModuleLoadHandle handle, ModuleReadyHandle ready)
         {
-            var module = Create(this, name);
-            module.SetHostInfo((JsModule _module, JsValue _specifier, out JsModule _record) =>
+            JsModule module = this;
+            var loader = handle.Invoke(name);
+            if (loader is JsModuleLoader)
             {
-                var namespance = (string)_specifier;
-                if (namespance.StartsWith("@"))
+                module = Create(this, name);
+                module.SetHostInfo((JsModule _module, JsValue _specifier, out JsModule _record) =>
                 {
-                    foreach (var item in loader.Invoke(namespance))
-                        JsContext.Current.Global.SetProperty(item.Name, item.ProxyObject(item.GetComponent()), true);
-                    _record = _module;
+                    _record = _module.LoadModule(_specifier, context, handle, ready);
                     return JsStatusFlags.OK;
+                });
+                module.SetHostInfo((JsSourceContext ctx, JsValue _specifier, out JsModule _record) =>
+                {
+                    _record = Invalid.LoadModule(_specifier, context, handle, ready);
+                    return JsStatusFlags.OK;
+                });
+                module.SetHostInfo((JsModule _referencingModule, JsValue _exception) =>
+                {
+                    ready.Invoke(_referencingModule, _exception);
+                    return JsStatusFlags.OK;
+                }); 
+                module.Parse(((JsModuleLoader)loader).SourceCode, context++);
+                return module;
+            }
+            else
+            {
+                foreach (var item in ((JsNativeModuleLoader)loader).GetComponentsProxy())
+                {
+                    JsContext.Current.Global.SetProperty(item.Name, JsValue.FromObject(item, item.GetComponent()), true);
                 }
-                _record = _module.LoadMoule(_specifier, context, loader, reader, ready);
-                return JsStatusFlags.OK;
-            });
-            module.SetHostInfo((JsSourceContext ctx, JsValue _specifier, out JsModule _record) =>
-            {
-                _record = Invalid.LoadMoule(_specifier, context, loader, reader, ready);
-                return JsStatusFlags.OK;
-            });
-            module.SetHostInfo((JsModule _referencingModule, JsValue _exception) =>
-            {
-                ready.Invoke(_referencingModule, _exception);
-                return JsStatusFlags.OK;
-            });
-            module.Parse(reader.Invoke(name), context++);
-            return module;
+                return this;
+            }
         }
 
         public bool Equals(JsModule _other) => p_ptr.Equals(_other.p_ptr);
@@ -80,5 +85,41 @@ namespace ChakraRuntime
             Native.ThrowIfError(Native.JsSetModuleHostInfo(module, name));
             return module;
         }
+    }
+
+    public interface IJsModuleLoader
+    {
+        JsValue Name { get; }
+    }
+
+    public class JsModuleLoader : IJsModuleLoader
+    {
+        public JsModuleLoader(JsValue name, string sourceCode)
+        {
+            this.Name = name;
+            SourceCode = sourceCode;
+        }
+
+        public JsValue Name { get; }
+
+        protected internal string SourceCode { get; }
+    }
+
+    public abstract class JsNativeModuleLoader : IJsModuleLoader
+    {
+        public JsNativeModuleLoader(JsValue name)
+        {
+            this.Name = name;
+        }
+
+        public JsValue Name { get; }
+        public abstract ComponentLoader[] GetComponentsProxy();
+    }
+
+    public abstract class ComponentLoader : ObjectProxy
+    {
+        internal virtual string Name => ((AsNameAttribute)this.GetType().GetCustomAttributes(false)[0]).Name;
+
+        protected internal abstract object GetComponent();
     }
 }
