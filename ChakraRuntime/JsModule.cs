@@ -1,4 +1,6 @@
-﻿using System;
+﻿using ChakraRuntime.Extensions;
+using System;
+using System.Linq;
 using System.Text;
 
 namespace ChakraRuntime
@@ -33,7 +35,7 @@ namespace ChakraRuntime
         {
             JsModule module = this;
             var loader = handle.Invoke(name);
-            if (loader is JsModuleLoader)
+            if (loader is JsSourceCodeModuleLoader)
             {
                 module = Create(this, name);
                 module.SetHostInfo((JsModule _module, JsValue _specifier, out JsModule _record) =>
@@ -50,15 +52,15 @@ namespace ChakraRuntime
                 {
                     ready.Invoke(_referencingModule, _exception);
                     return JsStatusFlags.OK;
-                }); 
-                module.Parse(((JsModuleLoader)loader).SourceCode, context++);
+                });
+                module.Parse(((JsSourceCodeModuleLoader)loader).SourceCode, context++);
                 return module;
             }
             else
             {
-                foreach (var item in ((JsNativeModuleLoader)loader).GetComponentsProxy())
+                foreach (var item in ((JsNativeModuleLoader)loader).GetComponents())
                 {
-                    JsContext.Current.Global.SetProperty(item.Name, JsValue.FromObject(item, item.GetComponent()), true);
+                    JsContext.Current.Global.SetProperty(item.Name.ToCamel(), JsValue.FromObject(item, item), true);
                 }
                 return this;
             }
@@ -85,41 +87,5 @@ namespace ChakraRuntime
             Native.ThrowIfError(Native.JsSetModuleHostInfo(module, name));
             return module;
         }
-    }
-
-    public interface IJsModuleLoader
-    {
-        JsValue Name { get; }
-    }
-
-    public class JsModuleLoader : IJsModuleLoader
-    {
-        public JsModuleLoader(JsValue name, string sourceCode)
-        {
-            this.Name = name;
-            SourceCode = sourceCode;
-        }
-
-        public JsValue Name { get; }
-
-        protected internal string SourceCode { get; }
-    }
-
-    public abstract class JsNativeModuleLoader : IJsModuleLoader
-    {
-        public JsNativeModuleLoader(JsValue name)
-        {
-            this.Name = name;
-        }
-
-        public JsValue Name { get; }
-        public abstract ComponentLoader[] GetComponentsProxy();
-    }
-
-    public abstract class ComponentLoader : ProxyContext
-    {
-        internal virtual string Name => ((AsNameAttribute)this.GetType().GetCustomAttributes(false)[0]).Name;
-
-        protected internal abstract object GetComponent();
     }
 }

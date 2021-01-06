@@ -12,24 +12,6 @@ using System.Threading.Tasks;
 
 namespace ChakraRuntime
 {
-    [AttributeUsage(AttributeTargets.Class |
-        AttributeTargets.Field |
-        AttributeTargets.Property |
-        AttributeTargets.Method |
-        AttributeTargets.Constructor |
-        AttributeTargets.Delegate,
-        AllowMultiple = false, 
-        Inherited = true)]
-    public class AsNameAttribute : Attribute
-    {
-        public AsNameAttribute(string name)
-        {
-            Name = name;
-        }
-
-        public string Name { get; set; }
-    }
-
     internal class JsObject : RealProxy
     {
         private JsValue _stubValue = JsValue.Invalid;
@@ -61,56 +43,66 @@ namespace ChakraRuntime
                     if (message.MethodName.StartsWith("get_"))
                     {
                         var name = message.MethodName.Substring(4, message.MethodName.Length - 4);
-                        var asName = _classToProxy.GetProperty(name).GetCustomAttribute<AsNameAttribute>(true)?.Name;
+                        var asNameAttribute = _classToProxy.GetProperty(name).GetCustomAttributes(true).FirstOrDefault();
+                        if (asNameAttribute != null)
+                            name = ((AsNameAttribute)asNameAttribute).Name;
                         if (!_stubValue.IsValid)
                             throw new Exception("无效的JsValue!");
-                        if (!_stubValue.HasProperty(string.IsNullOrWhiteSpace(asName) ? name : asName))
+                        if (!_stubValue.HasProperty(name))
                             throw new Exception("该属性在JsValue中不存在!");
-                        var obj = _stubValue.GetProperty(string.IsNullOrWhiteSpace(asName) ? name : asName).ProxyObject(((MethodInfo)message.MethodBase).ReturnType);
+                        var obj = _stubValue.GetProperty(name).ProxyObject(((MethodInfo)message.MethodBase).ReturnType);
                         return new ReturnMessage(obj, new object[0], 0, message.LogicalCallContext, message);
                     }
                     else if (message.MethodName.StartsWith("set_"))
                     {
                         var name = message.MethodName.Substring(4, message.MethodName.Length - 4);
-                        var asName = _classToProxy.GetProperty(name).GetCustomAttribute<AsNameAttribute>(true)?.Name;
+                        var asNameAttribute = _classToProxy.GetProperty(name).GetCustomAttributes(true).FirstOrDefault();
+                        if (asNameAttribute != null)
+                            name = ((AsNameAttribute)asNameAttribute).Name;
                         if (!_stubValue.IsValid)
                             throw new Exception("无效的JsValue!");
-                        if (!_stubValue.HasProperty(string.IsNullOrWhiteSpace(asName) ? name : asName))
+                        if (!_stubValue.HasProperty(name))
                             throw new Exception("该属性在JsValue中不存在!");
-                        _stubValue.SetProperty(string.IsNullOrWhiteSpace(asName) ? name : asName, JsValue.FromObject(message.Args[0]), true);
+                        _stubValue.SetProperty(name, JsValue.FromObject(message.Args[0]), true);
                         return new ReturnMessage(null, new object[0], 0, message.LogicalCallContext, message);
                     }
                     else if (message.MethodName.Equals("FieldGetter"))
                     {
                         var name = message.Args[1].ToString();
-                        var asName = _classToProxy.GetField(name).GetCustomAttribute<AsNameAttribute>(true)?.Name;
+                        var asNameAttribute = _classToProxy.GetProperty(name).GetCustomAttributes(true).FirstOrDefault();
+                        if (asNameAttribute != null)
+                            name = ((AsNameAttribute)asNameAttribute).Name;
                         if (!_stubValue.IsValid)
                             throw new Exception("无效的JsValue!");
-                        if (!_stubValue.HasProperty(string.IsNullOrWhiteSpace(asName) ? name : asName))
+                        if (!_stubValue.HasProperty(name))
                             throw new Exception("该属性在JsValue中不存在!");
-                        var obj = _stubValue.GetProperty(string.IsNullOrWhiteSpace(asName) ? name : asName).ProxyObject(((MethodInfo)message.MethodBase).ReturnType);
+                        var obj = _stubValue.GetProperty(name).ProxyObject(((MethodInfo)message.MethodBase).ReturnType);
                         return new ReturnMessage(null, new object[] { message.Args[0], message.Args[1], obj }, 3, message.LogicalCallContext, message);
                     }
                     else if (message.MethodName.Equals("FieldSetter"))
                     {
                         var name = message.Args[1].ToString();
-                        var asName = _classToProxy.GetField(name).GetCustomAttribute<AsNameAttribute>(true)?.Name;
+                        var asNameAttribute = _classToProxy.GetProperty(name).GetCustomAttributes(true).FirstOrDefault();
+                        if (asNameAttribute != null)
+                            name = ((AsNameAttribute)asNameAttribute).Name;
                         if (!_stubValue.IsValid)
                             throw new Exception("无效的JsValue!");
-                        if (!_stubValue.HasProperty(string.IsNullOrWhiteSpace(asName) ? name : asName))
+                        if (!_stubValue.HasProperty(name))
                             throw new Exception("该属性在JsValue中不存在!");
-                        _stubValue.SetProperty(string.IsNullOrWhiteSpace(asName) ? name : asName, JsValue.FromObject(message.Args[2]), true);
+                        _stubValue.SetProperty(name, JsValue.FromObject(message.Args[2]), true);
                         return new ReturnMessage(null, new object[] { message.Args[0], message.Args[1], null }, 3, message.LogicalCallContext, message);
                     }
                     else
                     {
                         var name = message.MethodName;
-                        var asName = _classToProxy.GetMethod(name).GetCustomAttribute<AsNameAttribute>(true)?.Name;
+                        var asNameAttribute = _classToProxy.GetProperty(name).GetCustomAttributes(true).FirstOrDefault();
+                        if (asNameAttribute != null)
+                            name = ((AsNameAttribute)asNameAttribute).Name;
                         if (!_stubValue.IsValid)
                             throw new Exception("无效的JsValue!");
-                        if (!_stubValue.HasProperty(string.IsNullOrWhiteSpace(asName) ? name : asName))
+                        if (!_stubValue.HasProperty(name))
                             throw new Exception("该属性在JsValue中不存在!");
-                        var method = _stubValue.GetProperty(string.IsNullOrWhiteSpace(asName) ? name : asName);
+                        var method = _stubValue.GetProperty(name);
                         var args = new List<JsValue>();
                         args.Add(method);
                         foreach (var item in message.Args)

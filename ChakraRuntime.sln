@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.30406.217
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChakraRuntime", "ChakraRuntime\ChakraRuntime.csproj", "{7DF695EC-2668-45BA-BF06-826C2123C0B1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sample", "Sample\Sample.csproj", "{15C6EE8B-B958-43EE-B6C3-65345BFD3C4F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChakraApp", "ChakraApp\ChakraApp.csproj", "{35D45B03-A3DF-444B-B4CE-5CF8A3795927}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -17,10 +17,10 @@ Global
 		{7DF695EC-2668-45BA-BF06-826C2123C0B1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7DF695EC-2668-45BA-BF06-826C2123C0B1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7DF695EC-2668-45BA-BF06-826C2123C0B1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{15C6EE8B-B958-43EE-B6C3-65345BFD3C4F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{15C6EE8B-B958-43EE-B6C3-65345BFD3C4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{15C6EE8B-B958-43EE-B6C3-65345BFD3C4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{15C6EE8B-B958-43EE-B6C3-65345BFD3C4F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35D45B03-A3DF-444B-B4CE-5CF8A3795927}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35D45B03-A3DF-444B-B4CE-5CF8A3795927}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35D45B03-A3DF-444B-B4CE-5CF8A3795927}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35D45B03-A3DF-444B-B4CE-5CF8A3795927}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

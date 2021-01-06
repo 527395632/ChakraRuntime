@@ -19,6 +19,6 @@ namespace ChakraRuntime
     public delegate bool JsThreadServiceHandle(JsBackgroundWorkItemHandle _handleFunction, IntPtr _handleData);
     public delegate JsValue JsNativeFunction(JsValue _callee, [MarshalAs(UnmanagedType.U1)] bool _isConstructCall, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] JsValue[] _arguments, ushort _argumentCount, IntPtr _handleData);
     public delegate void ModuleReadyHandle(JsModule _referencingModule, JsValue _exception);
-    public delegate ProxyContext ObjectProxyHandle();
+    public delegate JsProxyHandle ObjectProxyHandle();
     public delegate IJsModuleLoader JsModuleLoadHandle(JsValue specifier);
 }

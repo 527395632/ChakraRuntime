@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading;
 
 namespace ChakraRuntime
@@ -29,8 +30,8 @@ namespace ChakraRuntime
             var wait = new EventWaitHandle(false, EventResetMode.ManualReset);
             JsModule.Root.LoadModule("app.boot", new JsSourceContext(), namespance =>
             {
-                return namespance.Equals("app.boot") ? 
-                new JsModuleLoader(namespance, $"import {{ { moduleName } }} from '{ moduleFileName }'; __APP__ = new { moduleName }();") :
+                return namespance.Equals("app.boot") ?
+                new JsSourceCodeModuleLoader(namespance, $"import {{ { moduleName } }} from '{ moduleFileName }'; __APP__ = new { moduleName }();") :
                 loader(namespance);
             }, (module, exception) => wait.Set()).Eval();
             wait.WaitOne();
@@ -111,11 +112,21 @@ namespace ChakraRuntime
         }
         public void Dispose()
         {
+            foreach (var item in Global.GetPropertyNames())
+            {
+                var prop = Global.GetProperty(item);
+                if (prop.ValueType == JsValueFlags.Object && prop.HasProperty("dispose"))
+                {
+                    var dispose = prop.GetProperty("dispose");
+                    dispose.Call(dispose);
+                    Global.DeleteProperty(item, true);
+                }
+            }
             if (Current.IsValid)
                 Current = Invalid;
         }
 
-        public static ObjectProxyHandle ProxyHandle { get; set; } = new ObjectProxyHandle(() => new ProxyContext());
+        public static ObjectProxyHandle ProxyHandle { get; set; } = new ObjectProxyHandle(() => new JsProxyHandle());
         public static JsContext Invalid => new JsContext(IntPtr.Zero);
         public static JsContext Current
         {

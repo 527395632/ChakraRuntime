@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ChakraRuntime.Extensions;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -209,7 +210,7 @@ namespace ChakraRuntime
         public T ToJObject<T>()
         {
             return ToJObject<T>(this);
-        }      
+        }
         public object ToJObject(Type type)
         {
             return ToJObject(this, type);
@@ -343,10 +344,23 @@ namespace ChakraRuntime
             }
         }
         public static JsValue FromObject(object value) => FromObject(JsContext.ProxyHandle.Invoke(), value);
-        public static JsValue FromObject(ProxyContext proxy, object value)
+        public static JsValue FromObject(JsProxyHandle proxy, object value)
         {
             if (value is Type)
-                return CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) => JsContext.ProxyHandle.Invoke().OnConstructInvoke((Type)value, ((Type)value).GetConstructors(), _callee, _isConstructCall, _arguments, _argumentCount));
+            {
+                return CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) =>
+                {
+                    if (!_isConstructCall)
+                        throw new JsScriptException(JsStatusFlags.ScriptException, "此对象需要初始化后再使用!");
+                    if (((Type)value).GetConstructors().Find(_arguments, out var method, out var args))
+                        return proxy.OnConstructInvoke(_callee, _arguments[0], (ConstructorInfo)method, args);
+                    return Undefined;
+                });
+            }
+            else if (value == null)
+            {
+                return Undefined;
+            }
             var type = value.GetType();
             if (type.IsEnum) return value.ToString();
 
@@ -373,16 +387,38 @@ namespace ChakraRuntime
                     var obj = CreateObject();
                     var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public).Where(q => !q.IsSpecialName);
                     foreach (var method in methods.Select(q => q.Name).Distinct().ToArray())
-                        obj.SetProperty(method, CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) => proxy.OnInvoke(value, methods.Where(q => q.Name.Equals(method)).ToArray(), _callee, _isConstructCall, _arguments, _argumentCount)), true);
+                    {
+                        var groupMethods = methods.Where(q => q.Name.Equals(method)).ToList();
+                        obj.SetProperty(method.ToCamel(), CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) =>
+                        {
+                            if (_isConstructCall)
+                                throw new JsScriptException(JsStatusFlags.ScriptException, "方法或属性不能使用实例化关键字 'new'");
+                            if (groupMethods.Find(_arguments, out var method, out var args))
+                                return proxy.OnInvoke(_callee, _arguments[0], value, method, args);
+                            return Undefined;
+                        }), true);
+                    }
+
                     var properties = type.GetProperties(BindingFlags.Instance | BindingFlags.Public);
                     foreach (var property in properties)
                     {
                         var descriptor = CreateObject();
                         descriptor.SetProperty("configurable", false, true);
                         if (property.CanRead)
-                            descriptor.SetProperty("get", CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) => proxy.OnGet(value, property, _callee, _isConstructCall, _arguments, _argumentCount)), true);
+                            descriptor.SetProperty("get", CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) =>
+                            {
+                                if (_isConstructCall)
+                                    throw new JsScriptException(JsStatusFlags.ScriptException, "方法或属性不能使用实例化关键字 'new'");
+                                return proxy.OnGet(_callee, _arguments[0], value, property);
+                            }), true);
                         if (property.CanWrite)
-                            descriptor.SetProperty("set", CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) => proxy.OnSet(value, property, _callee, _isConstructCall, _arguments, _argumentCount)), true);
+                            descriptor.SetProperty("set", CreateFunction((_callee, _isConstructCall, _arguments, _argumentCount, _handleData) =>
+                            {
+                                if (_isConstructCall)
+                                    throw new JsScriptException(JsStatusFlags.ScriptException, "方法或属性不能使用实例化关键字 'new'");
+                                proxy.OnSet(_callee, _arguments[0], value, property, _arguments[1].ProxyObject(property.PropertyType));
+                                return Undefined;
+                            }), true);
 
                         obj.DefineProperty(property.Name, descriptor);
                     }
@@ -445,81 +481,6 @@ namespace ChakraRuntime
             var milliseconds = (double)value.ConvertToNumber();
 
             return TimeZone.CurrentTimeZone.ToLocalTime(new System.DateTime(1970, 1, 1)).AddMilliseconds(milliseconds);
-        }
-    }
-
-    public class ProxyContext
-    {
-        protected internal virtual JsValue OnConstructInvoke(Type _reference, ConstructorInfo[] constructors, JsValue _callee, [MarshalAs(UnmanagedType.U1)] bool _isConstructCall, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] JsValue[] _arguments, ushort _argumentCount)
-        {
-            if (!_isConstructCall)
-                throw new JsScriptException(JsStatusFlags.ScriptException, "此对象需要初始化后再使用!");
-
-            return constructors.Select(q =>
-            {
-                var arguments = q.GetParameters();
-                if (arguments.Length == _argumentCount - 1)
-                {
-                    var args = new object[arguments.Length];
-                    for (int i = 0; i < args.Length; i++)
-                    {
-                        try
-                        {
-                            args[i] = _arguments[i + 1].ChangeObject(arguments[i].ParameterType);
-                        }
-                        catch (Exception)
-                        {
-                            args = null;
-                            break;
-                        }
-                    }
-                    if (args != null)
-                        return JsValue.FromObject(q.Invoke(args));
-                }
-                return JsValue.Invalid;
-            }).FirstOrDefault(q => q.IsValid);
-        }
-        protected internal virtual JsValue OnInvoke(object _reference, MethodBase[] methods, JsValue _callee, [MarshalAs(UnmanagedType.U1)] bool _isConstructCall, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] JsValue[] _arguments, ushort _argumentCount)
-        {
-            if (_isConstructCall)
-                throw new JsScriptException(JsStatusFlags.ScriptException, "方法或属性不能使用实例化关键字 'new'");
-
-            return methods.Select(q =>
-            {
-                var arguments = q.GetParameters();
-                if (arguments.Length == _argumentCount - 1)
-                {
-                    var args = new object[arguments.Length];
-                    for (int i = 0; i < args.Length; i++)
-                    {
-                        try
-                        {
-                            args[i] = _arguments[i + 1].ChangeObject(arguments[i].ParameterType);
-                        }
-                        catch (Exception)
-                        {
-                            args = null;
-                            break;
-                        }
-                    }
-                    if (args != null)
-                        return JsValue.FromObject(q.Invoke(_reference, args));
-                }
-                return JsValue.Invalid;
-            }).FirstOrDefault(q => q.IsValid);
-        }
-        protected internal virtual JsValue OnGet(object _reference, PropertyInfo property, JsValue _callee, [MarshalAs(UnmanagedType.U1)] bool _isConstructCall, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] JsValue[] _arguments, ushort _argumentCount)
-        {
-            if (_isConstructCall)
-                throw new JsScriptException(JsStatusFlags.ScriptException, "方法或属性不能使用实例化关键字 'new'");
-            return JsValue.FromObject(property.GetValue(_reference));
-        }
-        protected internal virtual JsValue OnSet(object _reference, PropertyInfo property, JsValue _callee, [MarshalAs(UnmanagedType.U1)] bool _isConstructCall, [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] JsValue[] _arguments, ushort _argumentCount)
-        {
-            if (_isConstructCall)
-                throw new JsScriptException(JsStatusFlags.ScriptException, "方法或属性不能使用实例化关键字 'new'");
-            property.SetValue(_reference, _arguments[1].ChangeObject(property.PropertyType));
-            return JsValue.Undefined;
         }
     }
 }
